@@ -25,6 +25,7 @@ function love.load()
     love.graphics.setBackgroundColor(155, 100, 100)
     logger = Logger:new()
     titleImage = love.graphics.newImage("title.png")
+    titleSound = loadSound("title.wav")
     inTitle = true
 end
 
@@ -44,6 +45,7 @@ function love.keypressed(key)
     if(inTitle) then
         if key == " " then
             inTitle=false
+            love.audio.play(titleSound)
         end
     else
     end

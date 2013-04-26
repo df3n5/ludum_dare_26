@@ -1,4 +1,2 @@
-ludum_dare_26
-=============
-
-Entry for Ludum Dare 26
+ludum-dare-26 entry
+===================

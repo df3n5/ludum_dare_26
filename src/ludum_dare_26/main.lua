@@ -26,6 +26,7 @@ Player = Fill:extend {
     --moveMode = "onlyJump",
     --conveyorMode = "conveyorLeft",
     conveyorMode = "normal",
+    canFire = true,
 
     onUpdate = function (self)
         self.velocity.x = 0
@@ -55,6 +56,7 @@ Player = Fill:extend {
                 self.canJump = false
             end
         end
+
         -- Reset if you go off screen
         if self.y > the.app.height then
             self:reset()
@@ -116,12 +118,51 @@ Spike = Tile:extend {
     end
 }
 
+Boss = Tile:extend {
+    x = 0, 
+    y = 0, 
+    width = 128,
+    height = 128,
+    image = "media/bigSpike.png",
+    health = 20,
+    
+    onCollide = function (self, other)
+        if other:instanceOf(Player) then
+            other:reset()
+        end
+    end,
+
+    onUpdate = function (self)
+        if self.player.x < self.x then
+            self.velocity.x = -10
+        else
+            self.velocity.x = 10
+        end
+    end
+}
+
+Bullet = Fill:extend {
+    x = 0, 
+    y = 0, 
+    width = 8,
+    height = 4,
+    fill = {0, 0, 0},
+    onCollide = function (self, other)
+        other.health = other.health - 10
+        if other.health <= 0 then
+            other:die()
+        end
+        self:die()
+    end
+}
+
+
 the.app = App:new {
     loadLevel = function(self, level) 
+        self.background = Fill:new{x=0, y=0, width=the.app.width, height=the.app.height}
+        self:add(self.background)
         if level == 1 then
             -- TODO: Transition to next scene
-            self.background = Fill:new{x=0, y=0, width=the.app.width, height=the.app.height}
-            self:add(self.background)
             self.player = Player:new{}
             self:add(self.player) 
             self.platforms = Group:new()
@@ -150,6 +191,16 @@ the.app = App:new {
                 self.bottomSpikes:add(Spike:new{x=startX + (i-1)*Spike.width, y=startY, flipY = true})
             end
             self:add(self.bottomSpikes)
+        elseif level == 2 then
+            self.player = Player:new{x=100, y=200}
+            self:add(self.player) 
+            self.platforms = Group:new()
+            self.platforms:add(Platform:new{x=100,y=300, width=600})
+            self:add(self.platforms)
+            self.boss = Boss:new{x=the.app.width/2, y=300 - Boss.height, player=self.player}
+            self:add(self.boss) 
+            self.bullets = Group:new()
+            self:add(self.bullets)
         end
     end,
     onRun = function (self)
@@ -169,20 +220,39 @@ the.app = App:new {
                     playSound('media/title.wav')
                     self:remove(self.title)
                     self.state = "level"
-                    self.level = 1
+                    --self.level = 1
+                    self.level = 2
                     self:loadLevel(self.level)
                 end
             end
         elseif self.state == "level" then
-            self.platforms:collide(self.player)
-            self.topSpikes:collide(self.player)
-            self.bottomSpikes:collide(self.player)
-            for k, spike in pairs(self.topSpikes.sprites) do
-                -- move down
-                if roughlyEqual(spike.x, self.player.x, 2.0) then
-                    spike.velocity.y = 400
-                end
-            end            
+            if self.level == 1 then
+                self.platforms:collide(self.player)
+                self.topSpikes:collide(self.player)
+                self.bottomSpikes:collide(self.player)
+                for k, spike in pairs(self.topSpikes.sprites) do
+                    -- move down
+                    if roughlyEqual(spike.x, self.player.x, 2.0) then
+                        spike.velocity.y = 400
+                    end
+                end            
+            elseif self.level == 2 then
+                self.platforms:collide(self.player)
+                self.boss:collide(self.player)
+                self.bullets:collide(self.boss)
+ 
+                if the.keys:justPressed('a') and self.player.canFire then
+                    self:fire(self.player)
+                end               
+            end
         end
+    end,
+    fire = function(self, player)
+        bulletSpeed = 700
+        bulletVel = bulletSpeed
+        if player.direction == "left" then
+            bulletVel = -bulletVel
+        end
+        self.bullets:add(Bullet:new{x=player.x, y=player.y+10, velocity={x=bulletVel} })
     end
 }

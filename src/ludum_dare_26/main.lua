@@ -18,15 +18,16 @@ Title = Tile:extend {
 Player = Fill:extend {
     x = 0, 
     y = 0, 
-    width = 32, 
-    height = 48,
+    width = 16, 
+    height = 24,
     acceleration = { y = 600 },
-    fill = {0, 0, 0},
+    fill = {100, 100, 100},
     moveMode = "normal",
     --moveMode = "onlyJump",
     --conveyorMode = "conveyorLeft",
     conveyorMode = "normal",
     canFire = true,
+    direction = 'right',
 
     onUpdate = function (self)
         self.velocity.x = 0
@@ -39,8 +40,10 @@ Player = Fill:extend {
         if self.moveMode=="normal" or (self.moveMode=="onlyJump" and not self.canJump) then
             if the.keys:pressed('left') then
                 self.velocity.x = self.velocity.x - 150
+                self.direction = 'left'
             elseif the.keys:pressed('right') then
                 self.velocity.x = self.velocity.x + 150
+                self.direction = 'right'
             else
                 if self.conveyorMode == "none" then
                     self.velocity.x = 0
@@ -125,6 +128,7 @@ Boss = Tile:extend {
     height = 128,
     image = "media/bigSpike.png",
     health = 20,
+    fill = {150, 150, 150},
     
     onCollide = function (self, other)
         if other:instanceOf(Player) then
@@ -250,9 +254,11 @@ the.app = App:new {
     fire = function(self, player)
         bulletSpeed = 700
         bulletVel = bulletSpeed
+        x = self.player.x + self.player.width
         if player.direction == "left" then
             bulletVel = -bulletVel
+            x = self.player.x - Bullet.width
         end
-        self.bullets:add(Bullet:new{x=player.x, y=player.y+10, velocity={x=bulletVel} })
+        self.bullets:add(Bullet:new{x=x, y=player.y+10, velocity={x=bulletVel} })
     end
 }

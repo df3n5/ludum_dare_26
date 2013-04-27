@@ -16,6 +16,7 @@ Title = Tile:extend {
 }
 
 resetNeeded = false
+storyMode = false
 
 function saveOrigPos(obj)
     obj.origX = obj.x
@@ -62,51 +63,53 @@ Player = ResetableFill:extend {
     speed = 200,
 
     onUpdate = function (self)
-        self.velocity.x = 0
-        if self.conveyorMode == "conveyorLeft" and (self.canJump) then
-            self.velocity.x = -100
-        end
-        if self.conveyorMode == "conveyorRight" and (self.canJump) then
-            self.velocity.x = 100
-        end
-        if self.moveMode=="topdown" or self.moveMode=="normal" or (self.moveMode=="onlyJump" and not self.canJump) then
-            if the.keys:pressed('left') then
-                self.velocity.x = self.velocity.x - self.speed
-                self.direction = 'left'
-            elseif the.keys:pressed('right') then
-                self.velocity.x = self.velocity.x + self.speed
-                self.direction = 'right'
-            else
-                if self.conveyorMode == "none" then
-                    self.velocity.x = 0
+        if(not storyMode) then
+            self.velocity.x = 0
+            if self.conveyorMode == "conveyorLeft" and (self.canJump) then
+                self.velocity.x = -100
+            end
+            if self.conveyorMode == "conveyorRight" and (self.canJump) then
+                self.velocity.x = 100
+            end
+            if self.moveMode=="topdown" or self.moveMode=="normal" or (self.moveMode=="onlyJump" and not self.canJump) then
+                if the.keys:pressed('left') then
+                    self.velocity.x = self.velocity.x - self.speed
+                    self.direction = 'left'
+                elseif the.keys:pressed('right') then
+                    self.velocity.x = self.velocity.x + self.speed
+                    self.direction = 'right'
+                else
+                    if self.conveyorMode == "none" then
+                        self.velocity.x = 0
+                    end
                 end
             end
-        end
 
-        if self.moveMode == "topdown" then
-            if the.keys:pressed('up') then
-                self.velocity.y = -self.speed
-            elseif the.keys:pressed('down') then
-                self.velocity.y = self.speed
-            else
-                self.velocity.y = 0
+            if self.moveMode == "topdown" then
+                if the.keys:pressed('up') then
+                    self.velocity.y = -self.speed
+                elseif the.keys:pressed('down') then
+                    self.velocity.y = self.speed
+                else
+                    self.velocity.y = 0
+                end
             end
-        end
 
-        --Jump logic
-        if the.keys:justPressed(' ') and self.canJump then
-            if roughlyEqual(self.y, self.lastpos.y, 0.2) then
-                playSound('media/jump.wav', 1.0)
-                self.velocity.y = -500
-                self.canJump = false
+            --Jump logic
+            if the.keys:justPressed(' ') and self.canJump then
+                if roughlyEqual(self.y, self.lastpos.y, 0.2) then
+                    playSound('media/jump.wav', 1.0)
+                    self.velocity.y = -500
+                    self.canJump = false
+                end
             end
-        end
 
-        -- Reset if you go off screen
-        if self.y > the.app.height then
-            resetNeeded = true
+            -- Reset if you go off screen
+            if self.y > the.app.height then
+                resetNeeded = true
+            end
+            self.lastpos = {x=self.x, y=self.y}
         end
-        self.lastpos = {x=self.x, y=self.y}
     end,
  
     onCollide = function (self)
@@ -235,12 +238,44 @@ Door = ResetableFill:extend {
 }
 
 the.app = App:new {
+    startStory = function(self, storyArray)
+        storyMode = true
+        self.storyBackground = Fill:new{x=0, y=the.app.height-100, height=100, width=the.app.width, fill={0,0,0}}
+        self:add(self.storyBackground)
+        --self.storyText = Text:new{x=25, y=the.app.height-75, tint={200,197,200}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
+        self.storyText = Text:new{x=25, y=the.app.height-75, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
+        self.storyTexts = {}
+        for i=2, #storyArray+1 do
+            print(i)
+            self.storyTexts[i-1] = Text:new{x=25, 
+                y=the.app.height-75, 
+                tint={1,1,1}, 
+                font={"media/Vdj.ttf", 14}, 
+                width=the.app.width, 
+                text=storyArray[i-1]}
+        end
+        self:add(self.storyText)
+    end,
+    pumpStory = function(self)
+        if the.keys:justPressed(' ') then
+            if #self.storyTexts == 0 then
+                storyMode = false
+                self.storyText:die()
+                self.storyBackground:die()
+            else
+                self.storyText:die()
+                self.storyText = table.remove(self.storyTexts, 1)
+                self:add(self.storyText)
+            end
+        end
+    end,
+    
     loadLevel = function(self, level) 
         self.background = Fill:new{x=0, y=0, width=the.app.width, height=the.app.height}
         self:add(self.background)
         if level == 1 then
             -- TODO: Transition to next scene
-            self.player = Player:new{}
+            self.player = Player:new{x=0,y=400-Player.height}
             self:add(self.player) 
             self.platforms = Group:new()
             self.platforms:add(Platform:new{x=0,y=400 })
@@ -268,6 +303,12 @@ the.app = App:new {
                 self.bottomSpikes:add(Spike:new{x=startX + (i-1)*Spike.width, y=startY, flipY = true})
             end
             self:add(self.bottomSpikes)
+            --self.storyText = Text:new{x=0, y=the.app.height-100, text="M: This is a sample story"}
+            storyArray = {}
+            storyArray[0] = "M: This is a sample story"
+            storyArray[1] = "M: This is a sample story 2"
+            storyArray[2] = "M: This is a sample story 3"
+            self:startStory(storyArray)
         elseif level == 2 then
             self.player = Player:new{x=100, y=200}
             self:add(self.player) 
@@ -329,15 +370,18 @@ the.app = App:new {
                     playSound('media/title.wav')
                     self:remove(self.title)
                     self.state = "level"
-                    --self.level = 1
+                    self.level = 1
                     --self.level = 2
                     --self.level = 3
-                    self.level = 4
+                    --self.level = 4
                     self:loadLevel(self.level)
                 end
             end
         elseif self.state == "level" then
             if self.level == 1 then
+                if(storyMode) then
+                    self:pumpStory()
+                end
                 self.platforms:collide(self.player)
                 self.topSpikes:collide(self.player)
                 self.bottomSpikes:collide(self.player)
@@ -346,7 +390,7 @@ the.app = App:new {
                     if roughlyEqual(spike.x, self.player.x, 2.0) then
                         spike.velocity.y = 400
                     end
-                end            
+                end
             elseif self.level == 2 then
                 self.platforms:collide(self.player)
                 self.boss:collide(self.player)

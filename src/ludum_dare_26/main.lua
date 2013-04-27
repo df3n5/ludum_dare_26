@@ -1,56 +1,35 @@
-require("AnAL")
-require("Sprite")
-require("Logger")
+STRICT = true
+DEBUG = true
 
--- constants
-PI = 3.14159
+require 'zoetrope'
 
-function checkQuit()
-    if love.keyboard.isDown("escape") then
-        love.event.quit()
-    end
-end
-
-function loadSound(filename)
-    data = love.sound.newSoundData(filename)
-    return love.audio.newSource(data)
-end
-
-function drawGame()
-end
-
--- Do some loading here
-function love.load()
-    -- Set background appropriately
-    love.graphics.setBackgroundColor(155, 100, 100)
-    logger = Logger:new()
-    titleImage = love.graphics.newImage("title.png")
-    titleSound = loadSound("title.wav")
-    inTitle = true
-end
-
--- Do some drawing here.
-function love.draw()
-    if(inTitle) then
-        love.graphics.draw(titleImage, 
-            0, 
-            0)
+function roughlyEqual(a, b, tolerance)
+    if ((a-b) < tolerance) and ((a-b) > -tolerance) then
+        return true
     else
-        drawGame()
+        return false
     end
-    logger:draw()
 end
 
-function love.keypressed(key)
-    if(inTitle) then
-        if key == " " then
-            inTitle=false
-            love.audio.play(titleSound)
+Title = Tile:extend {
+    image = 'media/title.png',
+}
+
+the.app = App:new {
+    onRun = function (self)
+        self.title = Title:new{}
+        self:add(self.title)
+        self.started = false
+    end,
+    onUpdate = function (self, elapsed)
+        if the.keys:pressed('escape') then
+            self.quit()
+        elseif the.keys:justPressed(' ') then
+            if not self.started then
+                self.started = true
+                playSound('media/title.wav')
+                -- TODO: Transition to next scene
+            end
         end
-    else
     end
-end
-
-function love.update(dt)
-    checkQuit()
-end
+}

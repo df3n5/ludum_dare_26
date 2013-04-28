@@ -18,6 +18,7 @@ Title = Tile:extend {
 resetNeeded = false
 storyMode = false
 soundLevel = 0.2
+spikeFallingSpeed = 200
 
 function playSfx(path)
     return playSound(path, soundLevel, "short")
@@ -33,15 +34,21 @@ end
 function saveOrigPos(obj)
     obj.origX = obj.x
     obj.origY = obj.y
-    obj.origVel = obj.velocity
-    obj.origAcceleration = obj.acceleration
+    obj.origVel = {}
+    obj.origVel.x = obj.velocity.x
+    obj.origVel.y = obj.velocity.y
+    obj.origAcceleration = {}
+    obj.origAcceleration.x = obj.acceleration.x
+    obj.origAcceleration.y = obj.acceleration.y
 end
 
 function reset(obj)
     obj.x = obj.origX
     obj.y = obj.origY
-    obj.velocity = obj.origVel
-    obj.acceleration = obj.origAcceleration
+    obj.velocity.x = obj.origVel.x
+    obj.velocity.y = obj.origVel.y
+    obj.acceleration.x = obj.origAcceleration.x
+    obj.acceleration.y = obj.origAcceleration.y
 end
 
 ResetableFill = Fill:extend {
@@ -286,17 +293,22 @@ function clear(self)
     end
 end
 
+defaultFont = {"media/Vdj.ttf", 14}
+
 the.app = App:new {
     startStory = function(self, storyArray)
         storyMode = true
         --self.storyBackground = Fill:new{x=0, y=the.app.height-100, height=100, width=the.app.width, fill={0,0,0}}
         self.storyBackground = Fill:new{x=0, y=the.app.height/2-100, height=100, width=the.app.width, fill={0,0,0}}
         self:add(self.storyBackground)
+
         --self.storyText = Text:new{x=25, y=the.app.height-75, tint={200,197,200}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
         --self.storyText = Text:new{x=25, y=the.app.height-75, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
         xOffset = 25
         yOffset = 25
-        self.storyText = Text:new{x=self.storyBackground.x+xOffset, y=self.storyBackground.y+yOffset, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
+        self.storyExplanationText = Text:new{x=self.storyBackground.x+xOffset, y=self.storyBackground.y+yOffset+50, tint={1,1,1}, font=defaultFont, width=the.app.width-50, text="Press Space"}
+        self:add(self.storyExplanationText)
+        self.storyText = Text:new{x=self.storyBackground.x+xOffset, y=self.storyBackground.y+yOffset, tint={1,1,1}, font=defaultFont, width=the.app.width-50, text=storyArray[0]}
         self.storyTexts = {}
         for i=2, #storyArray+1 do
             print(i)
@@ -304,8 +316,8 @@ the.app = App:new {
                 x=self.storyBackground.x+xOffset, 
                 y=self.storyBackground.y+yOffset,
                 tint={1,1,1}, 
-                font={"media/Vdj.ttf", 14}, 
-                width=the.app.width, 
+                font=defaultFont, 
+                width=the.app.width-50, 
                 text=storyArray[i-1]}
         end
         self:add(self.storyText)
@@ -315,6 +327,7 @@ the.app = App:new {
             if #self.storyTexts == 0 then
                 storyMode = false
                 self.storyText:die()
+                self.storyExplanationText:die()
                 self.storyBackground:die()
             else
                 self.storyText:die()
@@ -453,9 +466,99 @@ the.app = App:new {
 
             storyArray = {}
             storyArray[0] = "T: You climb that to get to school?"
-            storyArray[1] = "M: Sure, it's pretty easy. I just held right to grab onto the wall and continue jumping."
+            storyArray[1] = "M: Sure, it's pretty easy. I just hold right to grab onto the wall and continue jumping."
             self:startStory(storyArray)
             self.shownPowerUp = false
+        elseif level == 5 then
+            --Close to school
+            clear(self)
+
+            self.platforms = Group:new()
+            self.platforms:add(Platform:new{x=0,y=the.app.height-Platform.height})
+            self:add(self.platforms)
+
+            self.bottomSpikes = Group:new()
+            startX = Platform.width
+            startY = the.app.height - Spike.height
+            n_spikes = 9
+            --bottom spikes
+            for i=1, n_spikes do
+                self.bottomSpikes:add(Spike:new{x=startX + (i-1)*Spike.width, y=startY, flipY = true})
+            end
+            self:add(self.bottomSpikes)
+
+            -- PLATFROM AFTER SPIKES
+            self.platforms:add(Platform:new{x=(n_spikes*Spike.width)+Platform.width,y=the.app.height-Platform.height, width=0.66*Platform.width})
+
+            topHeight = the.app.height/3 - 40
+            self.platforms:add(Platform:new{x=(n_spikes*Spike.width)+(Platform.width*2),y=2*the.app.height/3})
+            self.platforms:add(Platform:new{x=(n_spikes*Spike.width)+(Platform.width*2),y=topHeight})
+            self.platforms:add(Platform:new{x=2*Platform.width/3 -10,y=topHeight})
+            self.platforms:add(Platform:new{x=2*Platform.width/3 -10,y=the.app.height/2})
+
+            self.door = Door:new{x=2*Platform.width/3 -10 + 50,y=the.app.height/2-Door.height}
+            self:add(self.door)
+
+            self.player = Player:new{x=0,y=the.app.height-Platform.height-Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: Coming up to school now. I see some of the triangles."
+            storyArray[1] = "T: Who are the triangles?"
+            storyArray[2] = "M: ..."
+            storyArray[3] = "M: I avoid them."
+            self:startStory(storyArray)
+        elseif level == 6 then
+            --Close to school
+            clear(self)
+
+            self.platforms = Group:new()
+            startingPlatform = Platform:new{x=0,y=the.app.height/8, width=350}
+            -- start and end platforms
+            self.platforms:add(startingPlatform)
+            endingPlatform = Platform:new{x=the.app.width-Platform.width,y=the.app.height/3}
+            self.platforms:add(endingPlatform)
+            --other platforms
+            platformWidth=Platform.width/6
+            startX = 128
+            --below start
+            self.platforms:add(Platform:new{x=startX, y=the.app.height/3, width=264})
+            --small ones
+            self.platforms:add(Platform:new{x=50, y=2*the.app.height/3, width=platformWidth})
+            self.platforms:add(Platform:new{x=startX, y=the.app.height - Platform.height, width=platformWidth})
+            self.platforms:add(Platform:new{x=2*the.app.width/3 - 50, y=the.app.height - Platform.height, width=platformWidth})
+            self.platforms:add(Platform:new{x=2*the.app.width/3 + 50, y=2*the.app.height/3, width=platformWidth})
+            --blocking middle
+            self.platforms:add(Platform:new{x=the.app.width/2 - Platform.height/2, y=-(the.app.height/2), width=Platform.height, height=the.app.height/2+(the.app.height/3+Platform.height)})
+            self:add(self.platforms)
+
+            self.door = Door:new{x=endingPlatform.x + endingPlatform.width/2 - (Door.width/2),y=endingPlatform.y - Door.height}
+            self:add(self.door)
+
+            --Spikes
+            self.topSpikes = Group:new()
+            startX = 450
+            n_spikes = 10
+            --top spikes
+            for i=1, n_spikes do
+                self.topSpikes:add(Spike:new{x=startX + (i-1)*Spike.width})
+            end
+            --One above the two small ones on the left
+            self.topSpikes:add(Spike:new{x=50, y=startingPlatform.y+Platform.height})
+            self.topSpikes:add(Spike:new{x=128, y=the.app.height/3+Platform.height})
+            self:add(self.topSpikes)
+
+            --Usually this is good
+            --self.player = Player:new{x=startingPlatform.x + startingPlatform.width/2 - (Player.width/2),y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self.player = Player:new{x=0,y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "T: Where are we now?"
+            storyArray[1] = "M: This is lunchtime at school."
+            storyArray[2] = 'M: The triangles have a "game" where they all try and jump on me.'
+            storyArray[3] = "M: I don't like lunchtime."
+            self:startStory(storyArray)
         end
             --[[
         elseif level == 2 then
@@ -530,6 +633,9 @@ the.app = App:new {
         self.door:collide(self.player)
         self:checkStory()
         self:checkNextLevel()
+        if not (self.bottomSpikes == nil) then
+            self.bottomSpikes:collide(self.player)
+        end
     end,
     onUpdate = function (self, elapsed)
         if the.keys:pressed('escape') then
@@ -556,6 +662,42 @@ the.app = App:new {
             elseif the.keys:pressed('5') then
                 self.started = true
                 self.level = 5
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('6') then
+                self.started = true
+                self.level = 6
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('7') then
+                self.started = true
+                self.level = 7
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('8') then
+                self.started = true
+                self.level = 8
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('9') then
+                self.started = true
+                self.level = 9
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('10') then
+                self.started = true
+                self.level = 10
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('11') then
+                self.started = true
+                self.level = 11
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('12') then
+                self.started = true
+                self.level = 12
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('13') then
+                self.started = true
+                self.level = 13
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('14') then
+                self.started = true
+                self.level = 14
                 self:loadLevel(self.level)
             end
         end
@@ -601,6 +743,18 @@ the.app = App:new {
                     self:startStory(storyArray)
                 end
                 self:defaultLevelUpdate()
+            elseif self.level == 6 then
+                self.topSpikes:collide(self.player)
+                self:defaultLevelUpdate()
+                -- if below a spike
+                for k, spike in pairs(self.topSpikes.sprites) do
+                    if self.player.y > spike.y then
+                        if roughlyEqual(spike.x, self.player.x, 2.0) then
+                            -- move down
+                            spike.velocity.y = spikeFallingSpeed
+                        end
+                    end
+                end
             else
                 self:defaultLevelUpdate()
             end
@@ -658,6 +812,11 @@ the.app = App:new {
             if not (self.enemies == nil) then
                 for k, enemy in pairs(self.enemies.sprites) do
                     reset(enemy)
+                end
+            end
+            if not (self.topSpikes == nil) then
+                for k, spike in pairs(self.topSpikes.sprites) do
+                    reset(spike)
                 end
             end
             resetNeeded = false

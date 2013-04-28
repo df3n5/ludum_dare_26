@@ -1,3 +1,4 @@
 When building:
  - Remove wavs
  - Make standalone windows and mac builds
+ - Turn of DEBUG

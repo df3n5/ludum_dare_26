@@ -17,8 +17,9 @@ Title = Tile:extend {
 
 resetNeeded = false
 storyMode = false
-soundLevel = 0.2
+soundLevel = 0.5
 spikeFallingSpeed = 200
+sideSpikeSpeed = 10
 
 function playSfx(path)
     return playSound(path, soundLevel, "short")
@@ -40,6 +41,9 @@ function saveOrigPos(obj)
     obj.origAcceleration = {}
     obj.origAcceleration.x = obj.acceleration.x
     obj.origAcceleration.y = obj.acceleration.y
+    if not (obj.health==nil) then
+        obj.origHealth = obj.health
+    end
 end
 
 function reset(obj)
@@ -49,6 +53,9 @@ function reset(obj)
     obj.velocity.y = obj.origVel.y
     obj.acceleration.x = obj.origAcceleration.x
     obj.acceleration.y = obj.origAcceleration.y
+    if not (obj.health==nil) then
+        obj.health = obj.origHealth
+    end
 end
 
 ResetableFill = Fill:extend {
@@ -77,11 +84,11 @@ Player = ResetableFill:extend {
     --conveyorMode = "conveyorLeft",
     --moveMode = "topdown",
     conveyorMode = "normal",
-    canFire = true,
     direction = 'right',
     speed = 200,
     isOverDoor = false,
     hasJumpPowerUp = false,
+    hasGunPowerUp = false,
 
     onUpdate = function (self)
         self.isOverDoor = false -- Should be set by door class to true
@@ -96,15 +103,19 @@ Player = ResetableFill:extend {
             if self.moveMode=="topdown" or self.moveMode=="normal" or (self.moveMode=="onlyJump" and not self.canJump) then
                 if the.keys:pressed('left') then
                     self.velocity.x = self.velocity.x - self.speed
-                    self.direction = 'left'
                 elseif the.keys:pressed('right') then
                     self.velocity.x = self.velocity.x + self.speed
-                    self.direction = 'right'
                 else
                     if self.conveyorMode == "none" then
                         self.velocity.x = 0
                     end
                 end
+            end
+
+            if the.keys:pressed('left') then
+                self.direction = 'left'
+            elseif the.keys:pressed('right') then
+                self.direction = 'right'
             end
 
             if self.moveMode == "topdown" then
@@ -225,6 +236,7 @@ Boss = ResetableTile:extend {
     image = "media/bigSpike.png",
     health = 20,
     fill = {150, 150, 150},
+    speed = 80,
     
     onCollide = function (self, other)
         if other:instanceOf(Player) then
@@ -232,11 +244,18 @@ Boss = ResetableTile:extend {
         end
     end,
 
-    onUpdate = function (self)
-        if self.player.x < self.x then
-            self.velocity.x = -10
+    onUpdate = function (self, delta)
+        if self.player.x < (self.x + (self.width/2)) then
+            self.velocity.x = -self.speed
         else
-            self.velocity.x = 10
+            self.velocity.x = self.speed
+        end
+        if not (self.timeToNormal == nil) then
+            self.timeToNormal = self.timeToNormal - delta
+            if(self.timeToNormal < 0) then
+                self.timeToNormal = nil
+                self.tint = {1,1,1}
+            end
         end
     end
 }
@@ -248,10 +267,14 @@ Bullet = ResetableFill:extend {
     height = 4,
     fill = {0, 0, 0},
     onCollide = function (self, other)
-        other.health = other.health - 10
+        other.health = other.health - 1
         if other.health <= 0 then
             other:die()
+            playSfx("media/explosion.ogg")
         end
+        other.tint = {0.5,0.5,0.5}
+        other.timeToNormal = 0.1
+        playSfx("media/blip.ogg")
         self:die()
     end
 }
@@ -276,6 +299,20 @@ JumpPowerUp = ResetableTile:extend {
     image="media/arrowup.png",
     onCollide = function (self, other)
         other.hasJumpPowerUp= true
+        playSfx("media/powerup.ogg")
+        self:die()
+    end
+}
+
+GunPowerUp = ResetableTile:extend {
+    x = 0, 
+    y = 0, 
+    width = 32,
+    height = 32,
+    image="media/gun.png",
+    onCollide = function (self, other)
+        other.hasGunPowerUp= true
+        playSfx("media/powerup.ogg")
         self:die()
     end
 }
@@ -285,6 +322,20 @@ function clear(self)
     if not (self.platforms == nil) then
         self:remove(self.platforms)
     end
+    if not (self.bottomSpikes == nil) then
+        --BUG This doesn't work
+        --self:remove(self.bottomSpikes)
+        self.bottomSpikes = nil
+    end
+--    if not (self.topSpikes == nil) then
+--        --BUG This doesn't work
+--        --self:remove(self.topSpikes)
+--        self.topSpikes = nil
+--    end
+--    if not (self.sideSpikes == nil) then
+--        --self:remove(self.sideSpikes)
+--        self:remove(self.sideSpikes)
+--    end
     if not (self.player == nil) then
         self:remove(self.player)
     end
@@ -311,7 +362,6 @@ the.app = App:new {
         self.storyText = Text:new{x=self.storyBackground.x+xOffset, y=self.storyBackground.y+yOffset, tint={1,1,1}, font=defaultFont, width=the.app.width-50, text=storyArray[0]}
         self.storyTexts = {}
         for i=2, #storyArray+1 do
-            print(i)
             self.storyTexts[i-1] = Text:new{
                 x=self.storyBackground.x+xOffset, 
                 y=self.storyBackground.y+yOffset,
@@ -324,6 +374,7 @@ the.app = App:new {
     end,
     pumpStory = function(self)
         if the.keys:justPressed(' ') then
+            playSfx("media/blip.ogg")
             if #self.storyTexts == 0 then
                 storyMode = false
                 self.storyText:die()
@@ -457,6 +508,8 @@ the.app = App:new {
 
             self.door = Door:new{x=750, y=height-Door.height}
             self:add(self.door)
+            self.door.active=false
+            self.door.visible=false
 
             self.jumpPowerUp = JumpPowerUp:new{x=350, y=height-JumpPowerUp.height- 10}
             self:add(self.jumpPowerUp)
@@ -509,7 +562,7 @@ the.app = App:new {
             storyArray[3] = "M: I avoid them."
             self:startStory(storyArray)
         elseif level == 6 then
-            --Close to school
+            --Lunch time (spikes falling)
             clear(self)
 
             self.platforms = Group:new()
@@ -558,6 +611,132 @@ the.app = App:new {
             storyArray[1] = "M: This is lunchtime at school."
             storyArray[2] = 'M: The triangles have a "game" where they all try and jump on me.'
             storyArray[3] = "M: I don't like lunchtime."
+            self:startStory(storyArray)
+        elseif level == 7 then
+            --Lunch time, spikes chasing
+            clear(self)
+
+            self.platforms = Group:new()
+            startingPlatform = Platform:new{x=0,y=the.app.height/8, width=650}
+            -- start and end platforms
+            self.platforms:add(startingPlatform)
+            endingPlatform = Platform:new{x=the.app.width-Platform.width,y=the.app.height-Platform.height}
+            self.platforms:add(endingPlatform)
+            --other platforms
+            platformWidth=Platform.width/3
+            startX = 128
+            self.platforms:add(Platform:new{x=1*the.app.width/4, y=the.app.height/4, width=3*the.app.width/4})
+            self.platforms:add(Platform:new{x=1*the.app.width/8, y=3*the.app.height/8, width=3*the.app.width/4})
+            --
+            self.platforms:add(Platform:new{x=3*the.app.width/8, y=4*the.app.height/8, width=5*the.app.width/8})
+            self.platforms:add(Platform:new{x=1*the.app.width/4, y=5*the.app.height/8, width=2*the.app.width/4})
+            --
+            self.platforms:add(Platform:new{x=7*the.app.width/16, y=6*the.app.height/8, width=9*the.app.width/16})
+            self.platforms:add(Platform:new{x=3*the.app.width/8, y=7*the.app.height/8, width=3*the.app.width/8})
+
+            self:add(self.platforms)
+
+            self.door = Door:new{x=endingPlatform.x + endingPlatform.width/2 - (Door.width/2),y=endingPlatform.y - Door.height}
+            self:add(self.door)
+
+            --side spikes
+            self.sideSpikes = Group:new()
+            n_spikes = (600 / 32)+1
+            for i=1, n_spikes do
+                spike = Spike:new{x=0, y=(i-1)*Spike.height, rotation=math.rad(-90)}
+                self.sideSpikes:add(spike)
+            end
+            self:add(self.sideSpikes)
+
+            --Usually this is good
+            --self.player = Player:new{x=startingPlatform.x + startingPlatform.width/2 - (Player.width/2),y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self.player = Player:new{x=100,y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: I was playing chess with a friend when they came for me."
+            storyArray[1] = "T: The triangles?"
+            storyArray[2] = 'M: Yeah, they said their leader wanted to talk to me.'
+            storyArray[3] = "M: I ran."
+            self:startStory(storyArray)
+        elseif level == 8 then
+            --Local lake
+            clear(self)
+
+            platformWidth=Platform.width/4
+            self.platforms = Group:new()
+            startingPlatform = Platform:new{x=0,y=the.app.height - 100, width = platformWidth}
+            -- start and end platforms
+            self.platforms:add(startingPlatform)
+            endingPlatform = Platform:new{x=the.app.width-Platform.width,y=the.app.height-Platform.height}
+            self.platforms:add(endingPlatform)
+            --other platforms
+            startX = 128
+            self.platforms:add(Platform:new{x=1*the.app.width/4 - 20, y=the.app.height/2, width=platformWidth})
+            self.platforms:add(Platform:new{x=2*the.app.width/3, y=the.app.height/2, width=platformWidth})
+            powerupPlatform = Platform:new{x=3*the.app.width/8, y=the.app.height/8 + 10, width=platformWidth*3}
+            self.platforms:add(powerupPlatform)
+
+            self:add(self.platforms)
+
+            self.gunPowerUp = GunPowerUp:new{x=powerupPlatform.x + powerupPlatform.width/2, y=powerupPlatform.y-GunPowerUp.height}
+            self:add(self.gunPowerUp)
+            self.shownGunPowerUp=false
+
+            --Only add door when get item
+            self.door = Door:new{x=endingPlatform.x + endingPlatform.width/2 - (Door.width/2),y=endingPlatform.y - Door.height}
+            self:add(self.door)
+            self.door.visible=false
+            self.door.active=false
+
+            --Usually this is good
+            self.player = Player:new{x=startingPlatform.x + startingPlatform.width/2 - (Player.width/2),y=startingPlatform.y - Player.height, hasJumpPowerUp=true, moveMode="onlyJump"}
+            --self.player = Player:new{x=100,y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: I ran to the lakeside."
+            storyArray[1] = "M: OW!"
+            storyArray[2] = "M: I fell and hurt my leg on a rock."
+            storyArray[3] = "M: I could only jump the rest of the way."
+            self:startStory(storyArray)
+        elseif level == 9 then
+            --Final Boss
+            clear(self)
+
+            self.platforms = Group:new()
+            -- start and end platforms
+            startingPlatform = Platform:new{x=the.app.width/4,y=the.app.height/2, width = the.app.width/2}
+            self.platforms:add(startingPlatform)
+            endingPlatform = startingPlatform
+            --other platforms
+            startX = 128
+            --self.platforms:add(Platform:new{x=1*the.app.width/4 - 20, y=the.app.height/2, width=platformWidth})
+            --self.platforms:add(Platform:new{x=2*the.app.width/3, y=the.app.height/2, width=platformWidth})
+
+            self:add(self.platforms)
+
+            --Only add door when get item
+            self.door = Door:new{x=endingPlatform.x + endingPlatform.width/2 - (Door.width/2),y=endingPlatform.y - Door.height}
+            self:add(self.door)
+            self.door.visible=false
+            self.door.active=false
+
+            --Usually this is good
+            self.player = Player:new{x=startingPlatform.x + startingPlatform.width/8,y=startingPlatform.y - Player.height, hasJumpPowerUp=true, hasGunPowerUp=true}
+            --self.player = Player:new{x=100,y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            self.boss = Boss:new{x=the.app.width/2, y=startingPlatform.y - Boss.height, player=self.player}
+            self.boss.active = false
+            self:add(self.boss) 
+
+            storyArray = {}
+            storyArray[0] = "M: With my hurt leg they eventually caught up to me."
+            storyArray[1] = "T: Oh no, what did they do?"
+            storyArray[2] = "M: They carried me away and told me I was going to fight their leader."
+            storyArray[3] = "M: My leg started to feel better."
+            storyArray[4] = "M: I was ready."
             self:startStory(storyArray)
         end
             --[[
@@ -741,6 +920,8 @@ the.app = App:new {
                     storyArray[0] = "T: You learned how to jump higher that day too?"
                     storyArray[1] = "M: Yep it was pretty good fun. I always learn things on my own."
                     self:startStory(storyArray)
+                    self.door.active=true
+                    self.door.visible=true
                 end
                 self:defaultLevelUpdate()
             elseif self.level == 6 then
@@ -754,6 +935,39 @@ the.app = App:new {
                             spike.velocity.y = spikeFallingSpeed
                         end
                     end
+                end
+            elseif self.level == 7 then
+                self:defaultLevelUpdate()
+                self.sideSpikes:collide(self.player)
+                for k, spike in pairs(self.sideSpikes.sprites) do
+                    if(not storyMode) then
+                        spike.velocity.x = sideSpikeSpeed
+                    end
+                end
+            elseif self.level == 8 then
+                self.gunPowerUp:collide(self.player)
+                
+                if self.player.hasGunPowerUp and not self.shownGunPowerUp then
+                    self.shownGunPowerUp = true
+                    storyArray = {}
+                    storyArray[0] = "T: Oh, you found a gun!"
+                    storyArray[1] = "M: Yeah. I'm normally a pacifist, but this time I thought they had gone too far."
+                    storyArray[2] = "M: I hung onto it."
+                    storyArray[3] = "T: You know you have to press 'a' to fire that thing right?"
+                    storyArray[4] = "T: Not that I approve of you using a gun or anything..."
+                    self:startStory(storyArray)
+                    self.door.active=true
+                    self.door.visible=true
+                end
+                self:defaultLevelUpdate()
+            elseif self.level == 9 then
+                self:defaultLevelUpdate()
+                if not (self.bullets == nil) then
+                    self.bullets:collide(self.boss)
+                end
+                self.boss:collide(self.player)
+                if(not storyMode) then
+                    self.boss.active = true
                 end
             else
                 self:defaultLevelUpdate()
@@ -819,8 +1033,22 @@ the.app = App:new {
                     reset(spike)
                 end
             end
+            if not (self.sideSpikes == nil) then
+                for k, spike in pairs(self.sideSpikes.sprites) do
+                    reset(spike)
+                end
+            end
+
+            if not (self.boss == nil) then
+                reset(self.boss)
+            end
+
             resetNeeded = false
         end
+        --Firing
+        if the.keys:justPressed('a') and self.player.hasGunPowerUp then
+            self:fire(self.player)
+        end               
     end,
     fire = function(self, player)
         bulletSpeed = 700
@@ -830,6 +1058,11 @@ the.app = App:new {
             bulletVel = -bulletVel
             x = self.player.x - Bullet.width
         end
+        if self.bullets == nil then
+            self.bullets = Group:new()
+            self:add(self.bullets)
+        end
         self.bullets:add(Bullet:new{x=x, y=player.y+10, velocity={x=bulletVel} })
+        playSfx("media/shoot.ogg")
     end
 }

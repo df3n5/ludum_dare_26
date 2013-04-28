@@ -73,8 +73,11 @@ Player = ResetableFill:extend {
     canFire = true,
     direction = 'right',
     speed = 200,
+    isOverDoor = false,
+    hasJumpPowerUp = false,
 
     onUpdate = function (self)
+        self.isOverDoor = false -- Should be set by door class to true
         if(not storyMode) then
             self.velocity.x = 0
             if self.conveyorMode == "conveyorLeft" and (self.canJump) then
@@ -110,8 +113,13 @@ Player = ResetableFill:extend {
             --Jump logic
             if the.keys:justPressed(' ') and self.canJump then
                 if roughlyEqual(self.y, self.lastpos.y, 0.2) then
-                    playSfx('media/jump.wav')
-                    self.velocity.y = -500
+                    if(self.hasJumpPowerUp) then
+                        playSfx('media/jumpbig.ogg')
+                        self.velocity.y = -500
+                    else
+                        playSfx('media/jump.ogg')
+                        self.velocity.y = -200
+                    end
                     self.canJump = false
                 end
             end
@@ -124,11 +132,13 @@ Player = ResetableFill:extend {
         end
     end,
  
-    onCollide = function (self)
-        if self.velocity.y > 0 then
-            self.velocity.x = 0
-            self.velocity.y = 0
-            self.canJump = true
+    onCollide = function (self, other)
+        if other:instanceOf(Platform) then
+            if self.velocity.y > 0 then
+                self.velocity.x = 0
+                self.velocity.y = 0
+                self.canJump = true
+            end
         end
     end,
 }
@@ -137,7 +147,7 @@ Platform = ResetableFill:extend {
     x = 0, 
     y = 0, 
     width = 128,
-    height = 32,
+    height = 16,
     fill = {0, 0, 0},
     platformType = "normal",
     squashMode = "vertical",
@@ -173,7 +183,6 @@ Platform = ResetableFill:extend {
 
     onCollide = function (self, other)
         if other:instanceOf(Platform) then
-            print("2 platforms colliding")
             self:die()
             other:die()
         end
@@ -245,9 +254,37 @@ Door = ResetableFill:extend {
     y = 0, 
     width = 32,
     height = 48,
-    fill = {0, 255, 12},
-    border = {0, 0, 0}
+    fill = {20, 255, 20},
+    border = {0, 0, 0},
+    onCollide = function (self, other)
+        other.isOverDoor = true
+    end
 }
+
+JumpPowerUp = ResetableTile:extend {
+    x = 0, 
+    y = 0, 
+    width = 16,
+    height = 16,
+    image="media/arrowup.png",
+    onCollide = function (self, other)
+        other.hasJumpPowerUp= true
+        self:die()
+    end
+}
+
+
+function clear(self)
+    if not (self.platforms == nil) then
+        self:remove(self.platforms)
+    end
+    if not (self.player == nil) then
+        self:remove(self.player)
+    end
+    if not (self.door == nil) then
+        self:remove(self.door)
+    end
+end
 
 the.app = App:new {
     startStory = function(self, storyArray)
@@ -291,17 +328,28 @@ the.app = App:new {
         self.background = Fill:new{x=0, y=0, width=the.app.width, height=the.app.height}
         self:add(self.background)
         if level == 1 then
-            -- TODO: Transition to next scene
-            self.player = Player:new{x=0,y=400-Player.height}
-            self:add(self.player) 
             self.platforms = Group:new()
-            self.platforms:add(Platform:new{x=0,y=400 })
+            self.platforms:add(Platform:new{x=0,y=400, width=50 })
+            self.platforms:add(Platform:new{x=0,y=400+Platform.height, width=the.app.width})
+            self.platforms:add(Platform:new{x=0+70,y=400, width=10})
+            --window
+            window = Tile:new{x=70, y=200, image="media/window.png"}
+            self:add(window)
             --self.platforms:add(Platform:new{x=250,y=400 })
             --self.platforms:add(Platform:new{x=400,y=500, width=200})
             --self.platforms:add(Platform:new{x=600,y=400, width=100})
-            self.platforms:add(Platform:new{x=700,y=200, width=100})
-            self.platforms:add(Platform:new{x=100,y=100, width=600})
+            --self.platforms:add(Platform:new{x=700,y=400, width=100})
+            --self.platforms:add(Platform:new{x=100,y=400, width=600})
+            --self.platforms:add(Platform:new{x=100,y=400, width=600})
             self:add(self.platforms)
+
+            self.door = Door:new{x=600,y=400+Platform.height-Door.height}
+            self:add(self.door)
+
+            self.player = Player:new{x=0,y=400-Player.height}
+            self:add(self.player)
+
+            --[[
             self.topSpikes = Group:new()
             startX = 100
             n_spikes = 15
@@ -320,13 +368,96 @@ the.app = App:new {
                 self.bottomSpikes:add(Spike:new{x=startX + (i-1)*Spike.width, y=startY, flipY = true})
             end
             self:add(self.bottomSpikes)
+            --]]
             --self.storyText = Text:new{x=0, y=the.app.height-100, text="M: This is a sample story"}
             storyArray = {}
-            storyArray[0] = "T: I want you to imagine what you did when you woke up that day."
-            storyArray[1] = "M: ..."
-            storyArray[2] = "M: I woke up and made my way to school as usual."
+            storyArray[0] = "T: You must remember to control yourself M. "
+            storyArray[1] = "M: Oh wait, good point. How do I control myself here?"
+            storyArray[2] = "T: *sigh* "
+            storyArray[3] = "T: Arrow keys to move left and right. Spacebar to jump and move through green doors."
+            storyArray[4] = "M: Thanks!"
+            storyArray[5] = "T: Now, I want you to do what you did when you woke up that day."
+            storyArray[6] = "M: ..."
+            storyArray[7] = "M: I woke up and made my way outside as normal."
             self:startStory(storyArray)
             self.music = playMusic("media/ambient_sweetness.ogg")
+        elseif level == 2 then
+            --stairs 
+            clear(self)
+
+            self.platforms = Group:new()
+            stairX = 0
+            stairY = 50
+            stairWidth = 20
+            stairHeight = 10
+            nStairs = 35
+            for i=1,nStairs do
+                self.platforms:add(Platform:new{x=stairX + ((i-1)*stairWidth),y=stairY+((i-1)*stairHeight), width=stairWidth, height=stairHeight})
+            end
+            self.platforms:add(Platform:new{x=stairX + ((nStairs)*stairWidth),y=stairY+((nStairs)*stairHeight), width=100, height=stairHeight})
+            self:add(self.platforms)
+
+            self.door = Door:new{x=stairX + ((nStairs)*stairWidth) + 50,y=stairY+((nStairs)*stairHeight)-Door.height}
+            self:add(self.door)
+
+            self.player = Player:new{x=stairX,y=stairY-Player.height}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: I went downstairs."
+            storyArray[1] = "M: I like stairs."
+            storyArray[2] = "T: ..."
+            self:startStory(storyArray)
+        elseif level == 3 then
+            --outside 1 
+            clear(self)
+
+            self.platforms = Group:new()
+            self.platforms:add(Platform:new{x=0,y=the.app.height-Platform.height})
+            self.platforms:add(Platform:new{x=200,y=550})
+            self.platforms:add(Platform:new{x=400,y=525})
+            self.platforms:add(Platform:new{x=630,y=500})
+            self:add(self.platforms)
+
+            self.door = Door:new{x=675, y=500-Door.height}
+            self:add(self.door)
+
+            self.player = Player:new{x=0,y=the.app.height-Platform.height-Player.height}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: Outside, it was a warm spring day. I hate spring."
+            storyArray[1] = "T: Me too, I'm more of a winter person." 
+            storyArray[2] = "M: I started my long walk to school."
+            self:startStory(storyArray)
+        elseif level == 4 then
+            --outside 2
+            clear(self)
+
+            self.platforms = Group:new()
+            height = 350
+            self.platforms:add(Platform:new{x=0,y=the.app.height-Platform.height})
+            self.platforms:add(Platform:new{x=150,y=height, width=Platform.height, height=the.app.height-height-50})
+            self.platforms:add(Platform:new{x=150+Platform.height,y=height, width=300})
+            self.platforms:add(Platform:new{x=700, y=height})
+            self:add(self.platforms)
+
+            self.door = Door:new{x=750, y=height-Door.height}
+            self:add(self.door)
+
+            self.jumpPowerUp = JumpPowerUp:new{x=350, y=height-JumpPowerUp.height- 10}
+            self:add(self.jumpPowerUp)
+
+            self.player = Player:new{x=0,y=the.app.height-Platform.height-Player.height}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "T: You climb that to get to school?"
+            storyArray[1] = "M: Sure, it's pretty easy. I just held right to grab onto the wall and continue jumping."
+            self:startStory(storyArray)
+            self.shownPowerUp = false
+        end
+            --[[
         elseif level == 2 then
             self.player = Player:new{x=100, y=200}
             self:add(self.player) 
@@ -370,6 +501,7 @@ the.app = App:new {
             self.player = Player:new{x=the.app.width/2, y=the.app.height/2, acceleration={x=0, y=0}, moveMode="topdown" }
             self:add(self.player) 
         end
+            --]]
     end,
     onRun = function (self)
         self.title = Title:new{}
@@ -377,15 +509,61 @@ the.app = App:new {
         self.started = false
         self.state = "title"
     end,
+    checkStory = function(self)
+        if(storyMode) then
+            self:pumpStory()
+        end
+    end,
+    checkNextLevel = function(self)
+        if the.keys:justPressed(' ') then
+            if self.player.isOverDoor then
+                playSfx('media/levelFinish.ogg')
+                self.level = self.level + 1
+                self:loadLevel(self.level)
+            end
+        end
+    end,
+
+    defaultLevelUpdate = function(self)
+        -- default
+        self.platforms:collide(self.player)
+        self.door:collide(self.player)
+        self:checkStory()
+        self:checkNextLevel()
+    end,
     onUpdate = function (self, elapsed)
         if the.keys:pressed('escape') then
             self.quit()
+        end
+
+        if DEBUG then
+            if the.keys:pressed('1') then
+                self.started = true
+                self.level = 1
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('2') then
+                self.started = true
+                self.level = 2
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('3') then
+                self.started = true
+                self.level = 3
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('4') then
+                self.started = true
+                self.level = 4
+                self:loadLevel(self.level)
+            elseif the.keys:pressed('5') then
+                self.started = true
+                self.level = 5
+                self:loadLevel(self.level)
+            end
         end
         if self.state == "title" then
             if the.keys:justPressed(' ') then
                 if not self.started then
                     self.started = true
-                    playSfx('media/title.wav')
+                    playSfx('media/title.ogg')
                     self:remove(self.title)
                     self.state = "level"
                     self.level = 1
@@ -397,19 +575,36 @@ the.app = App:new {
             end
         elseif self.state == "level" then
             if self.level == 1 then
-                if(storyMode) then
-                    self:pumpStory()
-                end
+                --bedroom
                 self.platforms:collide(self.player)
-                self.topSpikes:collide(self.player)
-                self.bottomSpikes:collide(self.player)
+                self.door:collide(self.player)
+                self:checkStory()
+                self:checkNextLevel()
+                --self.topSpikes:collide(self.player)
+                --self.bottomSpikes:collide(self.player)
+                --[[
                 for k, spike in pairs(self.topSpikes.sprites) do
                     -- move down
                     if roughlyEqual(spike.x, self.player.x, 2.0) then
                         spike.velocity.y = 400
                     end
                 end
-            elseif self.level == 2 then
+                --]]
+            elseif self.level == 4 then
+                self.jumpPowerUp:collide(self.player)
+                
+                if self.player.hasJumpPowerUp and not self.shownPowerUp then
+                    self.shownPowerUp = true
+                    storyArray = {}
+                    storyArray[0] = "T: You learned how to jump higher that day too?"
+                    storyArray[1] = "M: Yep it was pretty good fun. I always learn things on my own."
+                    self:startStory(storyArray)
+                end
+                self:defaultLevelUpdate()
+            else
+                self:defaultLevelUpdate()
+            end
+                --[[
                 self.platforms:collide(self.player)
                 self.boss:collide(self.player)
                 self.bullets:collide(self.boss)
@@ -430,7 +625,7 @@ the.app = App:new {
                 x, y = self.player:overlap(self.door.x, self.door.y, self.door.width, self.door.height)
                 if x>0 or y>0 then
                     if the.keys:justPressed('a') then
-                        playSfx('media/levelFinish.wav')
+                        playSfx('media/levelFinish.ogg')
                     end
                 end
             elseif self.level == 4 then
@@ -456,7 +651,16 @@ the.app = App:new {
                     self:loadLevel(self.level)
                     resetNeeded = false
                 end
+            --]]
+        end
+        if(resetNeeded == true) then
+            reset(self.player)
+            if not (self.enemies == nil) then
+                for k, enemy in pairs(self.enemies.sprites) do
+                    reset(enemy)
+                end
             end
+            resetNeeded = false
         end
     end,
     fire = function(self, player)

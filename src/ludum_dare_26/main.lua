@@ -17,6 +17,18 @@ Title = Tile:extend {
 
 resetNeeded = false
 storyMode = false
+soundLevel = 0.2
+
+function playSfx(path)
+    return playSound(path, soundLevel, "short")
+end
+
+function playMusic(path)
+    music = sound(path, "long")
+    music:setLooping(true)
+    music:play()
+    return music
+end
 
 function saveOrigPos(obj)
     obj.origX = obj.x
@@ -98,7 +110,7 @@ Player = ResetableFill:extend {
             --Jump logic
             if the.keys:justPressed(' ') and self.canJump then
                 if roughlyEqual(self.y, self.lastpos.y, 0.2) then
-                    playSound('media/jump.wav', 1.0)
+                    playSfx('media/jump.wav')
                     self.velocity.y = -500
                     self.canJump = false
                 end
@@ -240,15 +252,20 @@ Door = ResetableFill:extend {
 the.app = App:new {
     startStory = function(self, storyArray)
         storyMode = true
-        self.storyBackground = Fill:new{x=0, y=the.app.height-100, height=100, width=the.app.width, fill={0,0,0}}
+        --self.storyBackground = Fill:new{x=0, y=the.app.height-100, height=100, width=the.app.width, fill={0,0,0}}
+        self.storyBackground = Fill:new{x=0, y=the.app.height/2-100, height=100, width=the.app.width, fill={0,0,0}}
         self:add(self.storyBackground)
         --self.storyText = Text:new{x=25, y=the.app.height-75, tint={200,197,200}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
-        self.storyText = Text:new{x=25, y=the.app.height-75, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
+        --self.storyText = Text:new{x=25, y=the.app.height-75, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
+        xOffset = 25
+        yOffset = 25
+        self.storyText = Text:new{x=self.storyBackground.x+xOffset, y=self.storyBackground.y+yOffset, tint={1,1,1}, font={"media/Vdj.ttf", 14}, width=the.app.width, text=storyArray[0]}
         self.storyTexts = {}
         for i=2, #storyArray+1 do
             print(i)
-            self.storyTexts[i-1] = Text:new{x=25, 
-                y=the.app.height-75, 
+            self.storyTexts[i-1] = Text:new{
+                x=self.storyBackground.x+xOffset, 
+                y=self.storyBackground.y+yOffset,
                 tint={1,1,1}, 
                 font={"media/Vdj.ttf", 14}, 
                 width=the.app.width, 
@@ -279,9 +296,9 @@ the.app = App:new {
             self:add(self.player) 
             self.platforms = Group:new()
             self.platforms:add(Platform:new{x=0,y=400 })
-            self.platforms:add(Platform:new{x=250,y=400 })
-            self.platforms:add(Platform:new{x=400,y=500, width=200})
-            self.platforms:add(Platform:new{x=600,y=400, width=100})
+            --self.platforms:add(Platform:new{x=250,y=400 })
+            --self.platforms:add(Platform:new{x=400,y=500, width=200})
+            --self.platforms:add(Platform:new{x=600,y=400, width=100})
             self.platforms:add(Platform:new{x=700,y=200, width=100})
             self.platforms:add(Platform:new{x=100,y=100, width=600})
             self:add(self.platforms)
@@ -305,10 +322,11 @@ the.app = App:new {
             self:add(self.bottomSpikes)
             --self.storyText = Text:new{x=0, y=the.app.height-100, text="M: This is a sample story"}
             storyArray = {}
-            storyArray[0] = "M: This is a sample story"
-            storyArray[1] = "M: This is a sample story 2"
-            storyArray[2] = "M: This is a sample story 3"
+            storyArray[0] = "T: I want you to imagine what you did when you woke up that day."
+            storyArray[1] = "M: ..."
+            storyArray[2] = "M: I woke up and made my way to school as usual."
             self:startStory(storyArray)
+            self.music = playMusic("media/ambient_sweetness.ogg")
         elseif level == 2 then
             self.player = Player:new{x=100, y=200}
             self:add(self.player) 
@@ -367,7 +385,7 @@ the.app = App:new {
             if the.keys:justPressed(' ') then
                 if not self.started then
                     self.started = true
-                    playSound('media/title.wav')
+                    playSfx('media/title.wav')
                     self:remove(self.title)
                     self.state = "level"
                     self.level = 1
@@ -412,7 +430,7 @@ the.app = App:new {
                 x, y = self.player:overlap(self.door.x, self.door.y, self.door.width, self.door.height)
                 if x>0 or y>0 then
                     if the.keys:justPressed('a') then
-                        playSound('media/levelFinish.wav')
+                        playSfx('media/levelFinish.wav')
                     end
                 end
             elseif self.level == 4 then

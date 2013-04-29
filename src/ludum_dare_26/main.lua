@@ -89,6 +89,7 @@ Player = ResetableFill:extend {
     isOverDoor = false,
     hasJumpPowerUp = false,
     hasGunPowerUp = false,
+    isFinished = false,
 
     onUpdate = function (self)
         self.isOverDoor = false -- Should be set by door class to true
@@ -168,11 +169,11 @@ Platform = ResetableFill:extend {
     height = 16,
     fill = {0, 0, 0},
     platformType = "normal",
-    squashMode = "vertical",
+    squashMode = "none",
     --platformType = "breakable",
     isDying = false,
     jumpable = false,
-    movementToCentreSpeed = 80,
+    movementToCentreSpeed = 120,
 
     moveTowardsCentre = function(self)
         if self.squashMode=="vertical" then
@@ -236,7 +237,7 @@ Boss = ResetableTile:extend {
     image = "media/bigSpike.png",
     health = 20,
     fill = {150, 150, 150},
-    speed = 80,
+    speed = 60,
     
     onCollide = function (self, other)
         if other:instanceOf(Player) then
@@ -270,6 +271,7 @@ Bullet = ResetableFill:extend {
         other.health = other.health - 1
         if other.health <= 0 then
             other:die()
+            other.dead=true
             playSfx("media/explosion.ogg")
         end
         other.tint = {0.5,0.5,0.5}
@@ -290,6 +292,18 @@ Door = ResetableFill:extend {
         other.isOverDoor = true
     end
 }
+
+T = ResetableTile:extend {
+    x = 0, 
+    y = 0, 
+    width = 32,
+    height = 32,
+    image = "media/t.png",
+    onCollide = function (self, other)
+        other.isFinished = true
+    end
+}
+
 
 JumpPowerUp = ResetableTile:extend {
     x = 0, 
@@ -318,35 +332,41 @@ GunPowerUp = ResetableTile:extend {
 }
 
 
-function clear(self)
-    if not (self.platforms == nil) then
-        self:remove(self.platforms)
-    end
-    if not (self.bottomSpikes == nil) then
-        --BUG This doesn't work
-        --self:remove(self.bottomSpikes)
-        self.bottomSpikes = nil
-    end
---    if not (self.topSpikes == nil) then
---        --BUG This doesn't work
---        --self:remove(self.topSpikes)
---        self.topSpikes = nil
---    end
---    if not (self.sideSpikes == nil) then
---        --self:remove(self.sideSpikes)
---        self:remove(self.sideSpikes)
---    end
-    if not (self.player == nil) then
-        self:remove(self.player)
-    end
-    if not (self.door == nil) then
-        self:remove(self.door)
-    end
-end
 
 defaultFont = {"media/Vdj.ttf", 14}
 
 the.app = App:new {
+    onNew = function(self)
+        self.stime = love.timer.getTime()
+        self.hasInitialized = false
+    end,
+    clear = function(self)
+        if not (self.player == nil) then
+            self:remove(self.player)
+        end
+        if not (self.door == nil) then
+            print("HIO")
+            self.door:die()
+            self:remove(self.door)
+        end
+        if not (self.platforms == nil) then
+            self:remove(self.platforms)
+        end
+        if not (self.bottomSpikes == nil) then
+            --BUG This doesn't work
+            --self:remove(self.bottomSpikes)
+            self.bottomSpikes = nil
+        end
+        --    if not (self.topSpikes == nil) then
+        --        --BUG This doesn't work
+        --        --self:remove(self.topSpikes)
+        --        self.topSpikes = nil
+        --    end
+        --    if not (self.sideSpikes == nil) then
+        --        --self:remove(self.sideSpikes)
+        --        self:remove(self.sideSpikes)
+        --    end
+    end,
     startStory = function(self, storyArray)
         storyMode = true
         --self.storyBackground = Fill:new{x=0, y=the.app.height-100, height=100, width=the.app.width, fill={0,0,0}}
@@ -447,7 +467,7 @@ the.app = App:new {
             self.music = playMusic("media/ambient_sweetness.ogg")
         elseif level == 2 then
             --stairs 
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             stairX = 0
@@ -474,7 +494,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 3 then
             --outside 1 
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             self.platforms:add(Platform:new{x=0,y=the.app.height-Platform.height})
@@ -496,7 +516,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 4 then
             --outside 2
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             height = 350
@@ -524,7 +544,7 @@ the.app = App:new {
             self.shownPowerUp = false
         elseif level == 5 then
             --Close to school
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             self.platforms:add(Platform:new{x=0,y=the.app.height-Platform.height})
@@ -563,7 +583,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 6 then
             --Lunch time (spikes falling)
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             startingPlatform = Platform:new{x=0,y=the.app.height/8, width=350}
@@ -614,7 +634,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 7 then
             --Lunch time, spikes chasing
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             startingPlatform = Platform:new{x=0,y=the.app.height/8, width=650}
@@ -661,7 +681,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 8 then
             --Local lake
-            clear(self)
+            self:clear()
 
             platformWidth=Platform.width/4
             self.platforms = Group:new()
@@ -702,7 +722,7 @@ the.app = App:new {
             self:startStory(storyArray)
         elseif level == 9 then
             --Final Boss
-            clear(self)
+            self:clear()
 
             self.platforms = Group:new()
             -- start and end platforms
@@ -711,6 +731,8 @@ the.app = App:new {
             endingPlatform = startingPlatform
             --other platforms
             startX = 128
+            platformWidth = 100
+            self.platforms:add(Platform:new{x=1*the.app.width/2 - Platform.width/2, y=the.app.height/4, width=platformWidth})
             --self.platforms:add(Platform:new{x=1*the.app.width/4 - 20, y=the.app.height/2, width=platformWidth})
             --self.platforms:add(Platform:new{x=2*the.app.width/3, y=the.app.height/2, width=platformWidth})
 
@@ -737,6 +759,85 @@ the.app = App:new {
             storyArray[2] = "M: They carried me away and told me I was going to fight their leader."
             storyArray[3] = "M: My leg started to feel better."
             storyArray[4] = "M: I was ready."
+            self:startStory(storyArray)
+        elseif level == 10 then
+            -- Puzzle Level
+            self:clear()
+
+            self.platforms = Group:new()
+            borderSize = 100
+            --Borders
+            self.platforms:add(Platform:new{x=0,y=0,width=borderSize, height=the.app.height})
+            self.platforms:add(Platform:new{x=the.app.width-borderSize,y=0,width=borderSize, height=the.app.height})
+            deltaY = 300
+            nWaves = 8
+            -- vertical ones
+            for i=1,nWaves,2 do
+                --wave one
+                self.platforms:add(Platform:new{x=borderSize + 100,y=100 - ((i-1)*deltaY),width=500, height=16, squashMode="vertical"})
+                self.platforms:add(Platform:new{x=borderSize + 100,y=500 + ((i-1)*deltaY),width=500, height=16, squashMode="vertical"})
+                --wave two
+                self.platforms:add(Platform:new{x=borderSize,y=100 - ((i)*deltaY),width=500, height=16, squashMode="vertical"})
+                self.platforms:add(Platform:new{x=borderSize,y=500 + ((i)*deltaY),width=500, height=16, squashMode="vertical"})
+            end
+            --[[
+            self.platforms:add(Platform:new{x=borderSize,y=-200,width=500, height=16, squashMode="vertical"})
+            self.platforms:add(Platform:new{x=borderSize,y=800,width=500, height=16, squashMode="vertical"})
+            self.platforms:add(Platform:new{x=borderSize+100,y=-500,width=500, height=16, squashMode="vertical"})
+            self.platforms:add(Platform:new{x=borderSize+100,y=1100,width=500, height=16, squashMode="vertical"})
+            self.platforms:add(Platform:new{x=borderSize,y=-500,width=500, height=16, squashMode="vertical"})
+            self.platforms:add(Platform:new{x=borderSize,y=1100,width=500, height=16, squashMode="vertical"})
+            --]]
+            --self.platforms:add(Platform:new{x=-200,y=100,width=100, width=16, height = the.app.height-100, squashMode="horizontal"})
+            --self.platforms:add(Platform:new{x=the.app.width+200,y=100,width=16, height = the.app.height-100, squashMode="horizontal"})
+            self:add(self.platforms)
+            self.platforms.active = false
+
+            --[[
+            self:remove(self.door)
+            self.door = Door:new{x=the.app.width/2 - (Door.width/2),y=the.app.height/2 - Door.height}
+            self:add(self.door)
+            self.door.active=false
+            self.door.visible=false
+            --]]
+
+            self.player = Player:new{x=the.app.width/2, y=the.app.height/2, acceleration={x=0, y=0}, moveMode="topdown" }
+            self:add(self.player) 
+
+            storyArray = {}
+            storyArray[0] = "T: M!"
+            storyArray[1] = "T: *....*.*.* "
+            storyArray[2] = "T: I'm losing you, we must have found what the cause of your pain was."
+            storyArray[3] = "T: But your brain is going into overdrive, it is trying to kill you! "
+            storyArray[4] = "T: You need to get out of this dream NOW...*.*"
+            self:startStory(storyArray)
+            self.hasInitialized = true
+        elseif level == 11 then
+            --Local lake
+            self:clear()
+
+            self.putUpCredits = false
+            self.shownEndingStory = false
+
+            self.platforms = Group:new()
+            startingPlatform = Platform:new{x=0,y=the.app.height/8, width=200}
+            -- start and end platforms
+            self.platforms:add(startingPlatform)
+            endingPlatform = Platform:new{x=the.app.width-Platform.width,y=the.app.height-Platform.height}
+            self.platforms:add(endingPlatform)
+            self:add(self.platforms)
+
+            -- Add T
+            self.t = T:new{x=endingPlatform.x + endingPlatform.width/2 - (T.width/2),y=endingPlatform.y - T.height}
+            self:add(self.t)
+
+            --Usually this is good
+            self.player = Player:new{x=startingPlatform.x + startingPlatform.width/2 - (Player.width/2),y=startingPlatform.y - Player.height, hasJumpPowerUp=true, hasGunPowerUp=true}
+            --self.player = Player:new{x=100,y=startingPlatform.y - Player.height, hasJumpPowerUp=true}
+            self:add(self.player)
+
+            storyArray = {}
+            storyArray[0] = "M: ..."
             self:startStory(storyArray)
         end
             --[[
@@ -858,23 +959,23 @@ the.app = App:new {
                 self.started = true
                 self.level = 9
                 self:loadLevel(self.level)
-            elseif the.keys:pressed('10') then
+            elseif the.keys:pressed('q') then
                 self.started = true
                 self.level = 10
                 self:loadLevel(self.level)
-            elseif the.keys:pressed('11') then
+            elseif the.keys:pressed('w') then
                 self.started = true
                 self.level = 11
                 self:loadLevel(self.level)
-            elseif the.keys:pressed('12') then
+            elseif the.keys:pressed('e') then
                 self.started = true
                 self.level = 12
                 self:loadLevel(self.level)
-            elseif the.keys:pressed('13') then
+            elseif the.keys:pressed('r') then
                 self.started = true
                 self.level = 13
                 self:loadLevel(self.level)
-            elseif the.keys:pressed('14') then
+            elseif the.keys:pressed('t') then
                 self.started = true
                 self.level = 14
                 self:loadLevel(self.level)
@@ -965,9 +1066,80 @@ the.app = App:new {
                 if not (self.bullets == nil) then
                     self.bullets:collide(self.boss)
                 end
+                if self.boss.dead then
+                    self.door.active=true
+                    self.door.visible=true
+                end
                 self.boss:collide(self.player)
                 if(not storyMode) then
                     self.boss.active = true
+                end
+            elseif self.level == 10 then
+                self:defaultLevelUpdate()
+                if(not storyMode) then
+                    self.platforms.active = true
+                    --check to see if sqashed by 2 platforms
+                    nCollisions = 0
+                    for k, platform in pairs(self.platforms.sprites) do
+                        if platform.active then
+                            x, y = self.player:overlap(platform.x, platform.y, platform.width, platform.height)
+                            if x>0 or y>0 then
+                                nCollisions = nCollisions + 1
+                            end
+                        end
+                    end
+                    if nCollisions > 0 then
+                        resetNeeded = true
+                    end
+                    self.platforms:collide(self.player)
+                    self.platforms:collide(self.platforms)
+                    for k, platform in pairs(self.platforms.sprites) do
+                        platform:moveTowardsCentre()
+                    end
+                end
+                
+                nPlatforms = 0
+                for k, platform in pairs(self.platforms.sprites) do
+                    if(platform.active == true) then
+                        nPlatforms = nPlatforms + 1
+                    end
+                end
+                print(nPlatforms)
+                if nPlatforms == 2 and self.hasInitialized then
+                    self.hasInitialized = false
+                    --FINISHED
+                    self.door = Door:new{x=the.app.width/2 - (Door.width/2),y=the.app.height/2 - Door.height}
+                    self:add(self.door)
+                    self:remove(self.player)
+                    self.player = Player:new{x=self.player.x, y=self.player.y, moveMode="topdown"}
+                    self:add(self.player) 
+                end
+            elseif self.level == 11 then
+                self:defaultLevelUpdate()
+                self.t:collide(self.player)
+                if self.player.isFinished and not self.shownEndingStory then
+                    self.shownEndingStory = true
+                    storyArray = {}
+                    storyArray[0] = "T: You made it M!"
+                    storyArray[1] = "M: Yeah. I feel much better. Thank you doctor."
+                    storyArray[2] = "T: It's my pleasure. "
+                    storyArray[3] = "T: That bully you mentioned in the story has been dealt with. "
+                    storyArray[4] = "T: He won't hurt you again."
+                    storyArray[5] = "T: When you wake up we'll all be waiting for you."
+                    self:startStory(storyArray)
+                end
+                if self.player.isFinished and (not storyMode) and (not self.putUpCredits) then
+                    self.putUpCredits = true 
+                    --Show credits
+                    self:add(Tile:new{x=0, y=0, image="media/endCredits.png"})
+                    --TODO: Display time taken
+                    self.etime = love.timer.getTime()
+                    self:add(Text:new{x=65, y=300, tint={0,0,0}, font=defaultFont, width = the.app.width, text = "Time taken (seconds) : " .. (self.etime-self.stime)})
+                end
+                if self.player.isFinished and (not storyMode) and (self.putUpCredits) then
+                    if the.keys:justPressed(' ') then
+                        self.state = "title"
+                    end
                 end
             else
                 self:defaultLevelUpdate()
@@ -1038,6 +1210,12 @@ the.app = App:new {
                     reset(spike)
                 end
             end
+            if not (self.platforms == nil) then
+                for k, platform in pairs(self.platforms.sprites) do
+                    reset(platform)
+                    platform:revive()
+                end
+            end
 
             if not (self.boss == nil) then
                 reset(self.boss)
@@ -1046,7 +1224,7 @@ the.app = App:new {
             resetNeeded = false
         end
         --Firing
-        if the.keys:justPressed('a') and self.player.hasGunPowerUp then
+        if the.keys:justPressed('a') and self.player.hasGunPowerUp and (not storyMode) then
             self:fire(self.player)
         end               
     end,

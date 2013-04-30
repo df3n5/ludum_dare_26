@@ -1,5 +1,5 @@
-STRICT = true
-DEBUG = true
+STRICT = false
+DEBUG = false
 
 require 'zoetrope'
 
@@ -90,6 +90,7 @@ Player = ResetableFill:extend {
     hasJumpPowerUp = false,
     hasGunPowerUp = false,
     isFinished = false,
+    lastpos = {x=0, y=0},
 
     onUpdate = function (self)
         self.isOverDoor = false -- Should be set by door class to true
@@ -130,7 +131,7 @@ Player = ResetableFill:extend {
             end
 
             --Jump logic
-            if the.keys:justPressed(' ') and self.canJump then
+            if the.keys:pressed(' ') and self.canJump then
                 if roughlyEqual(self.y, self.lastpos.y, 0.2) then
                     if(self.hasJumpPowerUp) then
                         playSfx('media/jumpbig.ogg')
@@ -308,8 +309,8 @@ T = ResetableTile:extend {
 JumpPowerUp = ResetableTile:extend {
     x = 0, 
     y = 0, 
-    width = 16,
-    height = 16,
+    width = 32,
+    height = 32,
     image="media/arrowup.png",
     onCollide = function (self, other)
         other.hasJumpPowerUp= true
@@ -345,7 +346,6 @@ the.app = App:new {
             self:remove(self.player)
         end
         if not (self.door == nil) then
-            print("HIO")
             self.door:die()
             self:remove(self.door)
         end
@@ -863,7 +863,6 @@ the.app = App:new {
 
             self.sideSpikes = Group:new()
             n_spikes = (600 / 32)+1
-            print(n_spikes)
             for i=1, n_spikes do
                 spike = Spike:new{x=0, y=(i-1)*Spike.height, rotation=math.rad(-90)}
                 spike.velocity.x = 10
@@ -1104,7 +1103,6 @@ the.app = App:new {
                         nPlatforms = nPlatforms + 1
                     end
                 end
-                print(nPlatforms)
                 if nPlatforms == 2 and self.hasInitialized then
                     self.hasInitialized = false
                     --FINISHED
@@ -1134,7 +1132,7 @@ the.app = App:new {
                     self:add(Tile:new{x=0, y=0, image="media/endCredits.png"})
                     --TODO: Display time taken
                     self.etime = love.timer.getTime()
-                    self:add(Text:new{x=65, y=300, tint={0,0,0}, font=defaultFont, width = the.app.width, text = "Time taken (seconds) : " .. (self.etime-self.stime)})
+                    self:add(Text:new{x=65, y=300, tint={1,1,1}, font=defaultFont, width = the.app.width, text = "Time taken (seconds) : " .. (self.etime-self.stime)})
                 end
                 if self.player.isFinished and (not storyMode) and (self.putUpCredits) then
                     if the.keys:justPressed(' ') then

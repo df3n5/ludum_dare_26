@@ -92,6 +92,22 @@ Player = ResetableFill:extend {
     isFinished = false,
     lastpos = {x=0, y=0},
 
+    jump = function(self)
+        --Jump logic
+        if the.keys:justPressed(' ') and self.canJump then
+            if roughlyEqual(self.y, self.lastpos.y, 0.2) then
+                if(self.hasJumpPowerUp) then
+                    playSfx('media/jumpbig.ogg')
+                    self.velocity.y = -500
+                else
+                    playSfx('media/jump.ogg')
+                    self.velocity.y = -200
+                end
+                self.canJump = false
+            end
+        end
+    end,
+
     onUpdate = function (self)
         self.isOverDoor = false -- Should be set by door class to true
         if(not storyMode) then
@@ -127,20 +143,6 @@ Player = ResetableFill:extend {
                     self.velocity.y = self.speed
                 else
                     self.velocity.y = 0
-                end
-            end
-
-            --Jump logic
-            if the.keys:pressed(' ') and self.canJump then
-                if roughlyEqual(self.y, self.lastpos.y, 0.2) then
-                    if(self.hasJumpPowerUp) then
-                        playSfx('media/jumpbig.ogg')
-                        self.velocity.y = -500
-                    else
-                        playSfx('media/jump.ogg')
-                        self.velocity.y = -200
-                    end
-                    self.canJump = false
                 end
             end
 
@@ -919,6 +921,9 @@ the.app = App:new {
     onUpdate = function (self, elapsed)
         if the.keys:pressed('escape') then
             self.quit()
+        end
+        if not (self.player == nil) then
+            self.player:jump()
         end
 
         if DEBUG then
